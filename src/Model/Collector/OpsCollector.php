@@ -101,6 +101,11 @@ class OpsCollector implements CollectorInterface
         if (! $connection->isTableExists($table)) {
             return [];
         }
+        // Magento 2.4.x queue_lock tracks message locks, not named consumers
+        $columns = $connection->describeTable($table);
+        if (! isset($columns['consumer_name'])) {
+            return [];
+        }
         $fiveMinutesAgo = date('Y-m-d H:i:s', strtotime('-5 minutes'));
         $select = $connection->select()
             ->from($table, ['consumer_name', 'updated_at'])
