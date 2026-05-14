@@ -134,15 +134,18 @@ class BizCollector implements CollectorInterface
     {
         if (! $statusAttrId || $totalActive === 0) return null;
 
-        $cpe   = $this->resource->getTableName('catalog_product_entity');
-        $cpei  = $this->resource->getTableName('catalog_product_entity_int');
-        $stock = $this->resource->getTableName('cataloginventory_stock_item');
+        $cpe        = $this->resource->getTableName('catalog_product_entity');
+        $cpei       = $this->resource->getTableName('catalog_product_entity_int');
+        $stockStatus = $this->resource->getTableName('cataloginventory_stock_status');
 
-        // Enabled products that are out of stock but still visible
+        if (! $connection->isTableExists($stockStatus)) return null;
+
         $visAttrId = $this->getAttributeId($connection, 'visibility');
         if (! $visAttrId) return null;
 
-        // Products: active + visible (not "Not Visible Individually" = 1) + out of stock
+        // Active + individually visible + out of stock (stock_status = 0)
+        // cataloginventory_stock_status is kept in sync by Magento indexers
+        // for both legacy inventory and MSI, making it safe in all configurations.
         $count = (int) $connection->fetchOne(
             $connection->select()
                 ->from(['cpe' => $cpe], ['COUNT(DISTINCT cpe.entity_id)'])
@@ -152,8 +155,8 @@ class BizCollector implements CollectorInterface
                 ->join(['vis' => $cpei],
                     "cpe.entity_id = vis.entity_id AND vis.attribute_id = {$visAttrId} AND vis.value > 1",
                     [])
-                ->join(['s' => $stock],
-                    'cpe.entity_id = s.product_id AND s.is_in_stock = 0 AND s.manage_stock = 1',
+                ->join(['ss' => $stockStatus],
+                    'cpe.entity_id = ss.product_id AND ss.stock_status = 0 AND ss.stock_id = 1',
                     [])
                 ->where('cpe.type_id IN (?)', ['simple', 'virtual', 'downloadable'])
         );
