@@ -9,11 +9,11 @@ use Magento\Store\Model\ScopeInterface;
 
 class Config extends AbstractHelper
 {
-    private const XML_PATH_ENABLED      = 'way2e_ticpan/general/enabled';
-    private const XML_PATH_ENDPOINT     = 'way2e_ticpan/general/api_endpoint';
-    private const XML_PATH_STORE_ID     = 'way2e_ticpan/general/store_id';
-    private const XML_PATH_SECRET_KEY   = 'way2e_ticpan/general/secret_key';
-    private const XML_PATH_TIMEOUT      = 'way2e_ticpan/general/timeout';
+    private const XML_PATH_ENABLED      = 'w2e_ticpan/general/enabled';
+    private const XML_PATH_ENDPOINT     = 'w2e_ticpan/general/api_endpoint';
+    private const XML_PATH_STORE_ID     = 'w2e_ticpan/general/store_id';
+    private const XML_PATH_SECRET_KEY   = 'w2e_ticpan/general/secret_key';
+    private const XML_PATH_TIMEOUT      = 'w2e_ticpan/general/timeout';
 
     public function __construct(
         Context $context,
