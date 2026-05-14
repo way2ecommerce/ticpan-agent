@@ -76,7 +76,7 @@ class CodeCollector implements CollectorInterface
             return null;
         }
 
-        $cmd    = escapeshellcmd("{$phpcs} --standard={$standard} --report=json --no-colors " . escapeshellarg($appCodeDir) . " 2>/dev/null");
+        $cmd    = escapeshellcmd(PHP_BINARY . " {$phpcs} --standard={$standard} --report=json --no-colors " . escapeshellarg($appCodeDir) . " 2>/dev/null");
         $output = shell_exec($cmd);
         if (! $output) {
             return null;
