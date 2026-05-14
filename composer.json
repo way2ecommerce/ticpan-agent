@@ -2,7 +2,6 @@
     "name": "way2ecommerce/ticpan-agent",
     "description": "Ticpan health monitoring agent for Magento 2",
     "type": "magento2-module",
-    "version": "1.0.0",
     "license": "proprietary",
     "require": {
         "php": "^8.1",
