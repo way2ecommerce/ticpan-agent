@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
+
+    <type name="W2e\Ticpan\Model\Collector\CollectorPool">
+        <arguments>
+            <argument name="collectors" xsi:type="array">
+                <item name="perf" xsi:type="object">W2e\Ticpan\Model\Collector\PerfCollector</item>
+                <item name="sec"  xsi:type="object">W2e\Ticpan\Model\Collector\SecCollector</item>
+                <item name="ops"  xsi:type="object">W2e\Ticpan\Model\Collector\OpsCollector</item>
+                <item name="code" xsi:type="object">W2e\Ticpan\Model\Collector\CodeCollector</item>
+            </argument>
+        </arguments>
+    </type>
+
+</config>

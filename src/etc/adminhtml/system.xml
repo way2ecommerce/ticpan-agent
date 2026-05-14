@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Config:etc/system_file.xsd">
+    <system>
+        <tab id="w2e" translate="label" sortOrder="500">
+            <label>W2e Commerce</label>
+        </tab>
+        <section id="w2e_ticpan" translate="label" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0">
+            <label>Ticpan Agent</label>
+            <tab>w2e</tab>
+            <resource>W2e_Ticpan::config</resource>
+            <group id="general" translate="label" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0">
+                <label>Configuración</label>
+                <field id="enabled" translate="label" type="select" sortOrder="10" showInDefault="1">
+                    <label>Habilitado</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                </field>
+                <field id="api_endpoint" translate="label" type="text" sortOrder="20" showInDefault="1">
+                    <label>Endpoint API</label>
+                    <comment>URL del endpoint de ingestión de Ticpan</comment>
+                </field>
+                <field id="store_id" translate="label" type="text" sortOrder="30" showInDefault="1">
+                    <label>Store ID</label>
+                    <comment>UUID proporcionado durante el onboarding en ticpan.app</comment>
+                </field>
+                <field id="secret_key" translate="label" type="obscure" sortOrder="40" showInDefault="1">
+                    <label>Secret Key</label>
+                    <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
+                    <comment>Clave secreta proporcionada durante el onboarding</comment>
+                </field>
+                <field id="timeout" translate="label" type="text" sortOrder="50" showInDefault="1">
+                    <label>Timeout HTTP (segundos)</label>
+                </field>
+            </group>
+        </section>
+    </system>
+</config>

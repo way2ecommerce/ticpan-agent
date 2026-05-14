@@ -1,0 +1,20 @@
+{
+    "name": "way2ecommerce/ticpan-agent",
+    "description": "Ticpan health monitoring agent for Magento 2",
+    "type": "magento2-module",
+    "version": "1.0.0",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.1",
+        "magento/framework": "^103.0",
+        "magento/module-config": "^101.0",
+        "magento/module-store": "^101.0",
+        "magento/module-cron": "^101.0"
+    },
+    "autoload": {
+        "files": ["src/registration.php"],
+        "psr-4": {
+            "W2e\\Ticpan\\": "src/"
+        }
+    }
+}

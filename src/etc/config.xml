@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Store:etc/config.xsd">
+    <default>
+        <w2e_ticpan>
+            <general>
+                <enabled>1</enabled>
+                <api_endpoint>https://ticpan.app/api/v1/report</api_endpoint>
+                <store_id></store_id>
+                <secret_key></secret_key>
+                <timeout>30</timeout>
+            </general>
+        </w2e_ticpan>
+    </default>
+</config>
