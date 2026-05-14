@@ -9,6 +9,7 @@
                 <item name="sec"  xsi:type="object">W2e\Ticpan\Model\Collector\SecCollector</item>
                 <item name="ops"  xsi:type="object">W2e\Ticpan\Model\Collector\OpsCollector</item>
                 <item name="code" xsi:type="object">W2e\Ticpan\Model\Collector\CodeCollector</item>
+                <item name="biz"  xsi:type="object">W2e\Ticpan\Model\Collector\BizCollector</item>
             </argument>
         </arguments>
     </type>
