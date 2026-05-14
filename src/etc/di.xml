@@ -13,4 +13,13 @@
         </arguments>
     </type>
 
+
+    <type name="Magento\Framework\Console\CommandList">
+        <arguments>
+            <argument name="commands" xsi:type="array">
+                <item name="ticpan_send_report" xsi:type="object">W2e\Ticpan\Console\Command\SendReportCommand</item>
+            </argument>
+        </arguments>
+    </type>
+
 </config>
