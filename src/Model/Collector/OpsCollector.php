@@ -81,9 +81,13 @@ class OpsCollector implements CollectorInterface
         if (! $this->isMqEnabled()) {
             return 0;
         }
-        $connection = $this->resource->getConnection();
-        $table      = $this->resource->getTableName('queue_message');
-        $select     = $connection->select()->from($table, ['COUNT(*)'])->where('status = ?', 0);
+        $connection  = $this->resource->getConnection();
+        $statusTable = $this->resource->getTableName('queue_message_status');
+        if (! $connection->isTableExists($statusTable)) {
+            return 0;
+        }
+        // status = 2 means NEW (pending) in Magento's MessageQueue
+        $select = $connection->select()->from($statusTable, ['COUNT(*)'])->where('status = ?', 2);
         return (int) $connection->fetchOne($select);
     }
 
