@@ -67,10 +67,20 @@ class CodeCollector implements CollectorInterface
             return $empty;
         }
 
-        $sizeBytes    = filesize($logFile);
+        $sizeBytes = filesize($logFile);
+
+        // Daily cache for top_types and sample_traces (expensive to compute)
+        $cacheFile = BP . '/var/ticpan_exceptions.cache';
+        if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < 86400) {
+            $cached = json_decode(file_get_contents($cacheFile), true);
+            if (is_array($cached)) {
+                return array_merge($cached, ['size_bytes' => $sizeBytes]);
+            }
+        }
+
         $sevenDaysAgo = strtotime('-7 days');
-        $typeCounts   = [];   // exception_class => ['count' => n, 'sample_message' => '...']
-        $sampleTraces = [];   // up to 5 complete entry strings, one per unique class
+        $typeCounts   = [];
+        $sampleTraces = [];
         $seenClasses  = [];
 
         $handle = fopen($logFile, 'r');
@@ -82,9 +92,7 @@ class CodeCollector implements CollectorInterface
         $currentDate  = null;
 
         while (($line = fgets($handle)) !== false) {
-            // New log entry starts with [YYYY-MM-DD or [YYYY-MM-DDTHH
             if (preg_match('/^\[(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2})/', $line, $m)) {
-                // Process previous entry
                 if ($currentEntry !== '' && $currentDate >= $sevenDaysAgo) {
                     $this->processEntry($currentEntry, $typeCounts, $sampleTraces, $seenClasses);
                 }
@@ -94,30 +102,35 @@ class CodeCollector implements CollectorInterface
                 $currentEntry .= $line;
             }
         }
-        // Process last entry
         if ($currentEntry !== '' && $currentDate >= $sevenDaysAgo) {
             $this->processEntry($currentEntry, $typeCounts, $sampleTraces, $seenClasses);
         }
         fclose($handle);
 
-        // Sort by count descending, take top 10
         arsort($typeCounts);
         $topTypes = [];
         foreach (array_slice($typeCounts, 0, 10, true) as $class => $data) {
             $topTypes[] = [
-                'exception_class'  => $class,
-                'count'            => $data['count'],
-                'sample_message'   => $data['sample_message'],
+                'exception_class' => $class,
+                'count'           => $data['count'],
+                'sample_message'  => $data['sample_message'],
             ];
         }
 
-        return [
+        $result = [
             'count'         => array_sum(array_column($typeCounts, 'count')),
             'readable'      => true,
             'size_bytes'    => $sizeBytes,
             'top_types'     => $topTypes,
             'sample_traces' => array_slice($sampleTraces, 0, 5),
         ];
+
+        // Cache for 24h (size_bytes excluded — always fresh)
+        $toCache = $result;
+        unset($toCache['size_bytes']);
+        file_put_contents($cacheFile, json_encode($toCache));
+
+        return $result;
     }
 
     private function processEntry(string $entry, array &$typeCounts, array &$sampleTraces, array &$seenClasses): void
