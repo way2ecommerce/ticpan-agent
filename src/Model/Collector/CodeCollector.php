@@ -17,6 +17,7 @@ class CodeCollector implements CollectorInterface
         return [
             'composer_lock_exists'    => file_exists(BP . '/composer.lock'),
             'composer_lock_hash'      => $this->getComposerLockHash(),
+            'composer_packages'       => $this->getComposerPackages(),
 
             // CODE-05
             'exception_count_7d'              => $exceptionData['count'],
@@ -25,9 +26,6 @@ class CodeCollector implements CollectorInterface
             'exception_log_size_bytes'        => $exceptionData['size_bytes'],
             'exception_log_top_types'         => $exceptionData['top_types'],
             'exception_log_sample_traces'     => $exceptionData['sample_traces'],
-
-            // CODE-06
-            'js_critical_errors_count' => 0,
 
             // CODE-07
             'phpcs_psr12_percent_compliant'  => $psr12Data['percent'],
@@ -291,5 +289,33 @@ class CodeCollector implements CollectorInterface
         if (! file_exists($lockFile)) return null;
         $lock = json_decode(file_get_contents($lockFile), true);
         return $lock['content-hash'] ?? md5_file($lockFile);
+    }
+
+    private function getComposerPackages(): array
+    {
+        $lockFile = BP . '/composer.lock';
+        if (! file_exists($lockFile)) return [];
+
+        $lock = json_decode(file_get_contents($lockFile), true);
+        if (! is_array($lock)) return [];
+
+        $result = [];
+        $allPkgs = array_merge($lock['packages'] ?? [], $lock['packages-dev'] ?? []);
+
+        foreach ($allPkgs as $pkg) {
+            $name = $pkg['name'] ?? '';
+            if (! $name) continue;
+
+            $abandoned = $pkg['abandoned'] ?? false;
+
+            $result[] = [
+                'name'      => $name,
+                'version'   => $pkg['version'] ?? '',
+                'time'      => $pkg['time'] ?? null,
+                'abandoned' => $abandoned === true ? true : (is_string($abandoned) ? $abandoned : false),
+            ];
+        }
+
+        return $result;
     }
 }
