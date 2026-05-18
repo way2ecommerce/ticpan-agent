@@ -20,6 +20,8 @@ class BizCollector implements CollectorInterface
         $statusAttrId = $this->getAttributeId($connection, 'status');
         $totalActive  = $this->countActiveProducts($connection, $statusAttrId);
 
+        $priceRules = $this->getPriceRulesDetail($connection);
+
         return [
             'pct_products_without_image' => $this->getPctWithoutImage($connection, $statusAttrId, $totalActive),
             'pct_without_desc'           => $this->getPctWithoutDesc($connection, $statusAttrId, $totalActive),
@@ -27,6 +29,11 @@ class BizCollector implements CollectorInterface
             'problematic_stock_pct'      => $this->getProblematicStockPct($connection, $statusAttrId, $totalActive),
             'price_rule_conflicts'       => $this->getPriceRuleConflicts($connection),
             'guest_checkout_enabled'     => $this->isGuestCheckoutEnabled(),
+            // BIZ-05 AI detail
+            'catalogrule_active_count'   => count($priceRules['catalog']),
+            'catalogrule_rules'          => $priceRules['catalog'],
+            'salesrule_active_count'     => count($priceRules['sales']),
+            'salesrule_rules'            => $priceRules['sales'],
         ];
     }
 
@@ -188,6 +195,54 @@ class BizCollector implements CollectorInterface
         }
 
         return 0;
+    }
+
+    private function getPriceRulesDetail($connection): array
+    {
+        $empty = ['catalog' => [], 'sales' => []];
+
+        $cacheFile = BP . '/var/ticpan_price_rules.cache';
+        if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < 86400) {
+            $cached = json_decode(file_get_contents($cacheFile), true);
+            if (is_array($cached)) return $cached;
+        }
+
+        $catalogTable = $this->resource->getTableName('catalogrule');
+        $salesTable   = $this->resource->getTableName('salesrule');
+
+        if (! $connection->isTableExists($catalogTable) || ! $connection->isTableExists($salesTable)) {
+            return $empty;
+        }
+
+        $catalogRules = $connection->fetchAll(
+            $connection->select()
+                ->from($catalogTable, [
+                    'rule_id', 'name', 'is_active', 'from_date', 'to_date',
+                    'simple_action', 'discount_amount', 'stop_rules_processing',
+                ])
+                ->where('is_active = 1')
+                ->where('to_date IS NULL OR to_date >= ?', date('Y-m-d'))
+                ->order('sort_order ASC')
+                ->limit(30)
+        );
+
+        $salesRules = $connection->fetchAll(
+            $connection->select()
+                ->from($salesTable, [
+                    'rule_id', 'name', 'is_active', 'from_date', 'to_date',
+                    'simple_action', 'discount_amount', 'stop_rules_processing',
+                    'coupon_type', 'uses_per_customer', 'simple_free_shipping',
+                ])
+                ->where('is_active = 1')
+                ->where('to_date IS NULL OR to_date >= ?', date('Y-m-d'))
+                ->order('sort_order ASC')
+                ->limit(30)
+        );
+
+        $result = ['catalog' => $catalogRules, 'sales' => $salesRules];
+        file_put_contents($cacheFile, json_encode($result));
+
+        return $result;
     }
 
     private function isGuestCheckoutEnabled(): bool
