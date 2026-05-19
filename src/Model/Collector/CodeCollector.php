@@ -3,10 +3,32 @@
 namespace W2e\Ticpan\Model\Collector;
 
 use Magento\Framework\App\Filesystem\DirectoryList;
+use Magento\Framework\App\ResourceConnection;
 
 class CodeCollector implements CollectorInterface
 {
-    public function __construct(private readonly DirectoryList $directoryList) {}
+    public function __construct(
+        private readonly DirectoryList $directoryList,
+        private readonly ResourceConnection $resource,
+    ) {}
+
+    private const CORE_FILE_SAMPLES = [
+        'vendor/magento/framework/App/Bootstrap.php',
+        'vendor/magento/framework/App/FrontController.php',
+        'vendor/magento/framework/App/Http.php',
+        'vendor/magento/framework/HTTP/PhpEnvironment/Request.php',
+        'vendor/magento/framework/Encryption/Encryptor.php',
+        'vendor/magento/module-backend/App/Action/Plugin/Authentication.php',
+        'vendor/magento/module-catalog/Model/Product.php',
+        'vendor/magento/module-catalog/Model/ResourceModel/Product.php',
+        'vendor/magento/module-checkout/Model/Session.php',
+        'vendor/magento/module-customer/Model/Customer.php',
+        'vendor/magento/module-quote/Model/Quote.php',
+        'vendor/magento/module-sales/Model/Order.php',
+        'vendor/magento/module-store/Model/Store.php',
+        'vendor/magento/module-user/Model/User.php',
+        'vendor/magento/module-payment/Model/Method/AbstractMethod.php',
+    ];
 
     public function collect(): array
     {
@@ -18,6 +40,9 @@ class CodeCollector implements CollectorInterface
             'composer_lock_exists'    => file_exists(BP . '/composer.lock'),
             'composer_lock_hash'      => $this->getComposerLockHash(),
             'composer_packages'       => $this->getComposerPackages(),
+            'core_file_hashes'        => $this->getCoreFileHashes(),
+            'js_errors_7d'            => $this->getJsErrors7d(),
+            'js_errors_total_count'   => $this->getJsErrorsTotalCount(),
 
             // CODE-05
             'exception_count_7d'              => $exceptionData['count'],
@@ -289,6 +314,68 @@ class CodeCollector implements CollectorInterface
         if (! file_exists($lockFile)) return null;
         $lock = json_decode(file_get_contents($lockFile), true);
         return $lock['content-hash'] ?? md5_file($lockFile);
+    }
+
+    private function getCoreFileHashes(): array
+    {
+        $hashes = [];
+        foreach (self::CORE_FILE_SAMPLES as $relPath) {
+            $absPath = BP . '/' . $relPath;
+            if (is_readable($absPath)) {
+                $hashes[$relPath] = hash('sha256', file_get_contents($absPath));
+            }
+        }
+        return $hashes;
+    }
+
+    private function getJsErrors7d(): array
+    {
+        try {
+            $connection = $this->resource->getConnection();
+            $table      = $this->resource->getTableName('w2e_ticpan_js_errors');
+
+            if (! $connection->isTableExists($table)) {
+                return [];
+            }
+
+            $since = date('Y-m-d H:i:s', strtotime('-7 days'));
+            $rows  = $connection->fetchAll(
+                $connection->select()
+                    ->from($table, ['message', 'count' => new \Zend_Db_Expr('COUNT(*)')])
+                    ->where('created_at >= ?', $since)
+                    ->group('message')
+                    ->order('count DESC')
+                    ->limit(50)
+            );
+
+            return array_map(fn ($r) => [
+                'message' => mb_substr($r['message'], 0, 300),
+                'count'   => (int) $r['count'],
+            ], $rows);
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    private function getJsErrorsTotalCount(): int
+    {
+        try {
+            $connection = $this->resource->getConnection();
+            $table      = $this->resource->getTableName('w2e_ticpan_js_errors');
+
+            if (! $connection->isTableExists($table)) {
+                return 0;
+            }
+
+            $since = date('Y-m-d H:i:s', strtotime('-7 days'));
+            return (int) $connection->fetchOne(
+                $connection->select()
+                    ->from($table, ['COUNT(*)'])
+                    ->where('created_at >= ?', $since)
+            );
+        } catch (\Throwable) {
+            return 0;
+        }
     }
 
     private function getComposerPackages(): array

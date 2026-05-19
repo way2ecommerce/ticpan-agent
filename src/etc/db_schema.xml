@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<schema xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:Setup/Declaration/Schema/etc/schema.xsd">
+
+    <table name="w2e_ticpan_js_errors" resource="default" engine="innodb" comment="Ticpan JS error log">
+        <column name="id"         xsi:type="int"      identity="true" nullable="false" unsigned="true"/>
+        <column name="message"    xsi:type="varchar"  length="500"    nullable="false" default=""/>
+        <column name="source"     xsi:type="varchar"  length="500"    nullable="true"/>
+        <column name="url"        xsi:type="varchar"  length="500"    nullable="true"/>
+        <column name="created_at" xsi:type="datetime"                 nullable="false"/>
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="id"/>
+        </constraint>
+        <index referenceId="W2E_TICPAN_JS_ERRORS_CREATED_AT" indexType="btree">
+            <column name="created_at"/>
+        </index>
+    </table>
+
+</schema>
