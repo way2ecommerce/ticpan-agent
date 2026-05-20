@@ -21,8 +21,6 @@ class OpsCollector implements CollectorInterface
             'mq_enabled'                  => $this->isMqEnabled(),
             'mq_pending_messages_total'   => $this->getMqPendingTotal(),
             'mq_active_consumers'         => $this->getMqActiveConsumers(),
-            'last_backup_timestamp'       => $this->getLastBackupTimestamp(),
-            'backup_threshold_hours'      => 24,
             'disk_volumes'                => $this->getDiskVolumes(),
             'disk_threshold_pct'          => 80,
             'agent_self_check'            => $this->selfCheck(),
@@ -111,19 +109,6 @@ class OpsCollector implements CollectorInterface
             ->from($table, ['consumer_name', 'updated_at'])
             ->where('updated_at > ?', $fiveMinutesAgo);
         return $connection->fetchAll($select);
-    }
-
-    private function getLastBackupTimestamp(): ?int
-    {
-        // Strategy A: check var/backups/ directory
-        $backupDir = BP . '/var/backups/';
-        if (is_dir($backupDir)) {
-            $files = glob($backupDir . '*.sql*') ?: [];
-            if ($files) {
-                return (int) max(array_map('filemtime', $files));
-            }
-        }
-        return null;
     }
 
     private function getDiskVolumes(): array

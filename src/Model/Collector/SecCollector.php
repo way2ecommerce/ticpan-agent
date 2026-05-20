@@ -45,10 +45,12 @@ class SecCollector implements CollectorInterface
         $connection = $this->resource->getConnection();
         $table      = $this->resource->getTableName('admin_user');
 
-        // Check if TFA table exists
+        // If TFA table doesn't exist the module is disabled — treat ALL admins as unconfigured
         $tfaTable = $this->resource->getTableName('tfa_user_config');
         if (! $connection->isTableExists($tfaTable)) {
-            return []; // TFA module not installed
+            return $connection->fetchCol(
+                $connection->select()->from($table, ['username'])->where('is_active = ?', 1)
+            );
         }
 
         $select = $connection->select()
