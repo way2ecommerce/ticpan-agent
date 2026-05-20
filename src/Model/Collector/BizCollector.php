@@ -27,6 +27,7 @@ class BizCollector implements CollectorInterface
             'pct_without_desc'           => $this->getPctWithoutDesc($connection, $statusAttrId, $totalActive),
             'duplicate_sku_count'        => $this->getDuplicateSkuCount($connection),
             'problematic_stock_pct'      => $this->getProblematicStockPct($connection, $statusAttrId, $totalActive),
+            'problematic_stock_detail'   => $this->getProblematicStockDetail($connection, $statusAttrId),
             'price_rule_conflicts'       => $this->getPriceRuleConflicts($connection),
             'guest_checkout_enabled'     => $this->isGuestCheckoutEnabled(),
             // BIZ-05 AI detail
@@ -169,6 +170,51 @@ class BizCollector implements CollectorInterface
         );
 
         return round($count / $totalActive * 100, 2);
+    }
+
+    private function getProblematicStockDetail($connection, ?int $statusAttrId): array
+    {
+        if (! $statusAttrId) return [];
+
+        $cpe        = $this->resource->getTableName('catalog_product_entity');
+        $cpei       = $this->resource->getTableName('catalog_product_entity_int');
+        $stockStatus = $this->resource->getTableName('cataloginventory_stock_status');
+        $stockItem   = $this->resource->getTableName('cataloginventory_stock_item');
+        $nameAttrId  = $this->getAttributeId($connection, 'name');
+        $visAttrId   = $this->getAttributeId($connection, 'visibility');
+
+        if (! $connection->isTableExists($stockStatus) || ! $visAttrId || ! $nameAttrId) return [];
+
+        $nameTable = $this->resource->getTableName('catalog_product_entity_varchar');
+
+        $rows = $connection->fetchAll(
+            $connection->select()
+                ->from(['cpe' => $cpe], ['sku'])
+                ->join(['cpei' => $cpei],
+                    "cpe.entity_id = cpei.entity_id AND cpei.attribute_id = {$statusAttrId} AND cpei.value = 1",
+                    [])
+                ->join(['vis' => $cpei],
+                    "cpe.entity_id = vis.entity_id AND vis.attribute_id = {$visAttrId} AND vis.value > 1",
+                    [])
+                ->join(['ss' => $stockStatus],
+                    'cpe.entity_id = ss.product_id AND ss.stock_status = 0 AND ss.stock_id = 1',
+                    [])
+                ->joinLeft(['si' => $stockItem],
+                    'cpe.entity_id = si.product_id AND si.stock_id = 1',
+                    ['qty'])
+                ->joinLeft(['n' => $nameTable],
+                    "cpe.entity_id = n.entity_id AND n.attribute_id = {$nameAttrId} AND n.store_id = 0",
+                    ['name' => 'value'])
+                ->where('cpe.type_id IN (?)', ['simple', 'virtual', 'downloadable'])
+                ->order('si.qty ASC')
+                ->limit(40)
+        );
+
+        return array_map(fn ($r) => [
+            'sku'  => $r['sku'],
+            'name' => $r['name'] ?? '',
+            'qty'  => $r['qty'] !== null ? (float) $r['qty'] : null,
+        ], $rows);
     }
 
     private function getPriceRuleConflicts($connection): int

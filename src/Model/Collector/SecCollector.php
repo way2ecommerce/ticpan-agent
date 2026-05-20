@@ -18,7 +18,7 @@ class SecCollector implements CollectorInterface
             'admin_url_custom'      => $this->isAdminUrlCustom(),
             'tfa_all_admins'        => $this->isTfaAllAdmins(),
             'admins_without_tfa'    => $this->getAdminsWithoutTfa(),
-            'password_policy_active' => $this->isPasswordPolicyActive(),
+            'admin_security_config'  => $this->getAdminSecurityConfig(),
             'captcha_admin_enabled' => $this->isCaptchaAdminEnabled(),
             'inactive_admin_count'  => $this->getInactiveAdminCount(),
             'file_permissions_ok'   => $this->checkFilePermissions(),
@@ -62,11 +62,18 @@ class SecCollector implements CollectorInterface
         return $connection->fetchCol($select);
     }
 
-    private function isPasswordPolicyActive(): bool
+    private function getAdminSecurityConfig(): array
     {
-        $minLength = (int) $this->scopeConfig->getValue('admin/security/password_is_forced');
-        return (bool) $this->scopeConfig->getValue('admin/security/password_is_forced')
-            || (int) $this->scopeConfig->getValue('admin/security/min_admin_password_length') >= 8;
+        $get = fn (string $path) => $this->scopeConfig->getValue($path);
+
+        return [
+            'min_admin_password_length' => (int)   ($get('admin/security/min_admin_password_length') ?? 7),
+            'password_is_forced'        => (bool)   $get('admin/security/password_is_forced'),
+            'password_lifetime'         => (int)   ($get('admin/security/password_lifetime') ?? 0),
+            'admin_account_sharing'     => (int)   ($get('admin/security/admin_account_sharing') ?? 1),
+            'lockout_failures'          => (int)   ($get('admin/security/lockout_failures') ?? 6),
+            'lockout_threshold'         => (int)   ($get('admin/security/lockout_threshold') ?? 30),
+        ];
     }
 
     private function isCaptchaAdminEnabled(): bool
