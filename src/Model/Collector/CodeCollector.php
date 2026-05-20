@@ -229,11 +229,11 @@ class CodeCollector implements CollectorInterface
             }
         }
 
-        // Weekly cache — only for percent (full violations always re-run if cache miss)
+        // Weekly cache — skip if cached percent is null (stale data from old code version)
         $cacheFile = BP . "/var/ticpan_phpcs_{$standard}.cache";
         if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < 604800) {
             $cached = json_decode(file_get_contents($cacheFile), true);
-            if (is_array($cached)) {
+            if (is_array($cached) && $cached['percent'] !== null) {
                 return array_merge($cached, ['from_cache' => true]);
             }
         }
@@ -252,7 +252,10 @@ class CodeCollector implements CollectorInterface
         $files      = $result['files'] ?? [];
         $totalFiles = count($files);
         if ($totalFiles === 0) {
-            return array_merge($empty, ['percent' => 100.0]);
+            // All files passed — no violations in JSON output. Cache and return 100%.
+            $allClear = array_merge($empty, ['percent' => 100.0]);
+            file_put_contents($cacheFile, json_encode($allClear));
+            return $allClear;
         }
 
         $compliantFiles  = 0;

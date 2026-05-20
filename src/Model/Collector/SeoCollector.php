@@ -12,7 +12,67 @@ class SeoCollector implements CollectorInterface
     {
         return [
             'product_meta_stats' => $this->getProductMetaStats(),
+            'sample_pdp_urls'    => $this->getSamplePdpUrls(),
         ];
+    }
+
+    /**
+     * Returns up to 8 request_paths of enabled products from url_rewrite.
+     * Uses the default store view's store_id to ensure URLs belong to the main store.
+     * Used by cloud evaluators (SEO-04, SEO-07, SEO-08) when no sitemap is available.
+     */
+    private function getSamplePdpUrls(): array
+    {
+        try {
+            $connection   = $this->resource->getConnection();
+            $cpe          = $this->resource->getTableName('catalog_product_entity');
+            $cpei         = $this->resource->getTableName('catalog_product_entity_int');
+            $urlRewrite   = $this->resource->getTableName('url_rewrite');
+            $statusAttrId = $this->getAttributeId($connection, 'status');
+
+            if (! $statusAttrId) return [];
+
+            // Resolve default store_id from the primary store group (group_id=1)
+            $groupTable = $this->resource->getTableName('store_group');
+            $storeId = (int) $connection->fetchOne(
+                $connection->select()->from($groupTable, ['default_store_id'])
+                    ->where('group_id = 1')
+                    ->limit(1)
+            ) ?: 1;
+
+            $visibilityAttrId = $this->getAttributeId($connection, 'visibility');
+
+            $select = $connection->select()
+                ->from(['r' => $urlRewrite], ['r.request_path'])
+                ->join(['e' => $cpe], 'e.entity_id = r.entity_id', [])
+                ->join(
+                    ['s' => $cpei],
+                    "s.entity_id = e.entity_id AND s.attribute_id = {$statusAttrId} AND s.store_id = 0",
+                    []
+                )
+                ->where('r.entity_type = ?', 'product')
+                ->where('r.store_id = ?', $storeId)
+                ->where('r.redirect_type = ?', 0)
+                ->where('e.type_id IN (?)', ['simple', 'virtual', 'downloadable', 'configurable'])
+                ->where('s.value = ?', 1);
+
+            // Filter out products not visible individually (child simples of configurables)
+            if ($visibilityAttrId) {
+                $select->join(
+                    ['v' => $cpei],
+                    "v.entity_id = e.entity_id AND v.attribute_id = {$visibilityAttrId} AND v.store_id = 0",
+                    []
+                )->where('v.value != ?', 1); // 1 = Not Visible Individually
+            }
+
+            $select->order(new \Zend_Db_Expr('RAND()'))->limit(8);
+
+            $paths = $connection->fetchCol($select);
+
+            return array_values(array_map(fn($p) => '/' . ltrim($p, '/'), $paths));
+        } catch (\Throwable) {
+            return [];
+        }
     }
 
     private function getProductMetaStats(): array
@@ -21,7 +81,6 @@ class SeoCollector implements CollectorInterface
             $connection = $this->resource->getConnection();
 
             $statusAttrId    = $this->getAttributeId($connection, 'status');
-            $typeAttrId      = $this->getAttributeId($connection, 'type_id');
             $metaTitleAttrId = $this->getAttributeId($connection, 'meta_title');
             $metaDescAttrId  = $this->getAttributeId($connection, 'meta_description');
 
@@ -33,7 +92,6 @@ class SeoCollector implements CollectorInterface
             $cpei = $this->resource->getTableName('catalog_product_entity_int');
             $cpev = $this->resource->getTableName('catalog_product_entity_varchar');
 
-            // Enabled products of evaluable types (simple, virtual, downloadable)
             $enabledIds = $connection->fetchCol(
                 $connection->select()
                     ->from(['e' => $cpe], ['e.entity_id'])
@@ -81,7 +139,6 @@ class SeoCollector implements CollectorInterface
 
     private function countNonEmpty($connection, string $table, int $attrId, array $entityIds): int
     {
-        // Process in chunks to avoid hitting IN() limits
         $count = 0;
         foreach (array_chunk($entityIds, 1000) as $chunk) {
             $count += (int) $connection->fetchOne(
