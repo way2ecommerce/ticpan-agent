@@ -25,8 +25,7 @@ class BizCollector implements CollectorInterface
         return [
             'pct_products_without_image' => $this->getPctWithoutImage($connection, $statusAttrId, $totalActive),
             'pct_without_desc'           => $this->getPctWithoutDesc($connection, $statusAttrId, $totalActive),
-            'duplicate_sku_count'        => $this->getDuplicateSkuCount($connection),
-            'problematic_stock_pct'      => $this->getProblematicStockPct($connection, $statusAttrId, $totalActive),
+'problematic_stock_pct'      => $this->getProblematicStockPct($connection, $statusAttrId, $totalActive),
             'problematic_stock_detail'   => $this->getProblematicStockDetail($connection, $statusAttrId),
             'price_rule_conflicts'       => $this->getPriceRuleConflicts($connection),
             'guest_checkout_enabled'     => $this->isGuestCheckoutEnabled(),
@@ -122,20 +121,6 @@ class BizCollector implements CollectorInterface
         );
 
         return round($count / $totalActive * 100, 2);
-    }
-
-    private function getDuplicateSkuCount($connection): int
-    {
-        $cpe = $this->resource->getTableName('catalog_product_entity');
-
-        $sub = $connection->select()
-            ->from(['cpe' => $cpe], ['sku', 'cnt' => 'COUNT(*)'])
-            ->group('sku')
-            ->having('COUNT(*) > 1');
-
-        $rows = $connection->fetchAll($sub);
-
-        return count($rows);
     }
 
     private function getProblematicStockPct($connection, ?int $statusAttrId, int $totalActive): ?float
