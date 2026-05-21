@@ -88,11 +88,11 @@ class SecCollector implements CollectorInterface
 
         $ninetyDaysAgo = date('Y-m-d H:i:s', strtotime('-90 days'));
 
+        $quoted = $connection->quote($ninetyDaysAgo);
         $select = $connection->select()
             ->from($table, ['COUNT(*)'])
             ->where('is_active = ?', 1)
-            ->where('logdate < ?', $ninetyDaysAgo)
-            ->orWhere('logdate IS NULL AND created < ?', $ninetyDaysAgo);
+            ->where("(logdate < {$quoted} OR (logdate IS NULL AND created < {$quoted}))");
 
         return (int) $connection->fetchOne($select);
     }
