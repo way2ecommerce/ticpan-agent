@@ -19,7 +19,8 @@ class SecCollector implements CollectorInterface
             'tfa_all_admins'        => $this->isTfaAllAdmins(),
             'admins_without_tfa'    => $this->getAdminsWithoutTfa(),
             'admin_security_config'  => $this->getAdminSecurityConfig(),
-            'captcha_admin_enabled' => $this->isCaptchaAdminEnabled(),
+            'captcha_admin_enabled'   => $this->isCaptchaAdminEnabled(),
+            'recaptcha_admin_enabled' => $this->isRecaptchaAdminEnabled(),
             'inactive_admin_count'  => $this->getInactiveAdminCount(),
             'file_permissions_ok'   => $this->checkFilePermissions(),
             'wrong_permission_paths' => $this->getWrongPermissionPaths(),
@@ -79,6 +80,12 @@ class SecCollector implements CollectorInterface
     private function isCaptchaAdminEnabled(): bool
     {
         return (bool) $this->scopeConfig->getValue('admin/captcha/enable');
+    }
+
+    private function isRecaptchaAdminEnabled(): bool
+    {
+        $type = $this->scopeConfig->getValue('recaptcha_backend/type_for/user_login');
+        return ! empty($type);
     }
 
     private function getInactiveAdminCount(): int
