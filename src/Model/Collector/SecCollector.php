@@ -3,36 +3,48 @@
 namespace W2e\Ticpan\Model\Collector;
 
 use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\App\DeploymentConfig;
 use Magento\Framework\App\ResourceConnection;
 
 class SecCollector implements CollectorInterface
 {
     public function __construct(
         private readonly ScopeConfigInterface $scopeConfig,
-        private readonly ResourceConnection $resource
+        private readonly ResourceConnection $resource,
+        private readonly DeploymentConfig $deploymentConfig
     ) {}
 
     public function collect(): array
     {
+        $inactiveAdmins = $this->getInactiveAdmins();
         return [
-            'admin_url_custom'      => $this->isAdminUrlCustom(),
-            'tfa_all_admins'        => $this->isTfaAllAdmins(),
-            'admins_without_tfa'    => $this->getAdminsWithoutTfa(),
-            'admin_security_config'  => $this->getAdminSecurityConfig(),
+            'admin_url_custom'        => $this->isAdminUrlCustom(),
+            'tfa_all_admins'          => $this->isTfaAllAdmins(),
+            'admins_without_tfa'      => $this->getAdminsWithoutTfa(),
+            'admin_security_config'   => $this->getAdminSecurityConfig(),
             'captcha_admin_enabled'   => $this->isCaptchaAdminEnabled(),
             'recaptcha_admin_enabled' => $this->isRecaptchaAdminEnabled(),
-            'inactive_admin_count'  => $this->getInactiveAdminCount(),
-            'file_permissions_ok'   => $this->checkFilePermissions(),
-            'wrong_permission_paths' => $this->getWrongPermissionPaths(),
+            'inactive_admin_count'    => count($inactiveAdmins),
+            'inactive_admin_usernames'=> $inactiveAdmins,
+            'file_permissions_ok'     => $this->checkFilePermissions(),
+            'wrong_permission_paths'  => $this->getWrongPermissionPaths(),
         ];
     }
 
     private function isAdminUrlCustom(): bool
     {
-        $frontName = $this->scopeConfig->getValue('admin/url/custom_path')
-            ?? $this->scopeConfig->getValue('admin/url/use_custom_path');
-        // Default Magento admin path is 'admin'
-        $path = $this->scopeConfig->getValue('admin/url/custom_path') ?? 'admin';
+        // Priority 1: env.php via DeploymentConfig (the authoritative runtime source)
+        $frontName = $this->deploymentConfig->get('backend/frontName');
+        if ($frontName !== null) {
+            return $frontName !== 'admin' && $frontName !== '';
+        }
+
+        // Fallback: ScopeConfig (set via admin UI with use_custom_path enabled)
+        $useCustom = (bool) $this->scopeConfig->getValue('admin/url/use_custom_path');
+        if (! $useCustom) {
+            return false;
+        }
+        $path = $this->scopeConfig->getValue('admin/url/custom_path') ?? '';
         return $path !== 'admin' && $path !== '';
     }
 
@@ -88,7 +100,7 @@ class SecCollector implements CollectorInterface
         return ! empty($type);
     }
 
-    private function getInactiveAdminCount(): int
+    private function getInactiveAdmins(): array
     {
         $connection = $this->resource->getConnection();
         $table      = $this->resource->getTableName('admin_user');
@@ -97,11 +109,11 @@ class SecCollector implements CollectorInterface
 
         $quoted = $connection->quote($ninetyDaysAgo);
         $select = $connection->select()
-            ->from($table, ['COUNT(*)'])
+            ->from($table, ['username'])
             ->where('is_active = ?', 1)
             ->where("(logdate < {$quoted} OR (logdate IS NULL AND created < {$quoted}))");
 
-        return (int) $connection->fetchOne($select);
+        return $connection->fetchCol($select);
     }
 
     private function checkFilePermissions(): bool
