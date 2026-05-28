@@ -24,13 +24,18 @@ class PerfCollector implements CollectorInterface
             'disabled_caches'         => $this->getDisabledCaches(),
             'fpc_enabled'             => $this->isFpcEnabled(),
             'redis_enabled'           => $this->isRedisEnabled(),
-            'opcache_enabled'         => function_exists('opcache_get_status') && (bool) opcache_get_status(false),
-            'opcache_memory_mb'       => $this->getOpcacheMemoryMb(),
+            'opcache_enabled'              => $this->isOpcacheEnabled(),
+            'opcache_memory_mb'            => $this->getOpcacheMemoryMb(),
+            'opcache_max_accelerated_files'=> $this->getOpcacheMaxAcceleratedFiles(),
+            'opcache_validate_timestamps'  => $this->getOpcacheValidateTimestamps(),
+            'realpath_cache_size_bytes'    => $this->getRealpathCacheSizeBytes(),
+            'realpath_cache_ttl'           => (int) ini_get('realpath_cache_ttl'),
             'php_version'             => PHP_VERSION,
+            'search_engine'           => $this->getSearchEngine(),
             'elasticsearch_ok'        => $this->isElasticsearchOk(),
             'invalid_indexers'        => $this->getInvalidIndexers(),
             'static_content_deployed' => $this->isStaticContentDeployed(),
-            'pub_static_exists'       => is_dir(BP . '/pub/static/frontend'),
+            'pub_static_exists'       => count(glob(BP . '/pub/static/frontend/*/*') ?: []) > 0,
         ];
     }
 
@@ -65,13 +70,56 @@ class PerfCollector implements CollectorInterface
         return $sessionBackend === 'redis' || str_contains((string) $cacheBackend, 'Redis');
     }
 
+    private function isOpcacheEnabled(): bool
+    {
+        if (! function_exists('opcache_get_status')) return false;
+        $status = opcache_get_status(false);
+        // opcache_get_status() returns false when OPCache is disabled for CLI but enabled for FPM.
+        // In that case fall back to the ini config, which reflects the FPM setting.
+        if ($status !== false) return (bool) ($status['opcache_enabled'] ?? false);
+        return function_exists('opcache_get_configuration')
+            && (bool) (opcache_get_configuration()['directives']['opcache.enable'] ?? false);
+    }
+
     private function getOpcacheMemoryMb(): int
     {
-        if (! function_exists('opcache_get_status')) {
-            return 0;
-        }
-        $status = opcache_get_status(false);
-        return (int) round(($status['memory_usage']['used_memory'] ?? 0) / 1048576);
+        if (! function_exists('opcache_get_configuration')) return 0;
+        // opcache.memory_consumption is the CONFIGURED limit in MB — what matters for the rule.
+        // Used memory (opcache_get_status) can be well below the limit on a fresh server.
+        return (int) (opcache_get_configuration()['directives']['opcache.memory_consumption'] ?? 0);
+    }
+
+    private function getOpcacheMaxAcceleratedFiles(): int
+    {
+        if (! function_exists('opcache_get_configuration')) return 0;
+        return (int) (opcache_get_configuration()['directives']['opcache.max_accelerated_files'] ?? 0);
+    }
+
+    private function getOpcacheValidateTimestamps(): bool
+    {
+        if (! function_exists('opcache_get_configuration')) return true; // assume worst case
+        return (bool) (opcache_get_configuration()['directives']['opcache.validate_timestamps'] ?? true);
+    }
+
+    private function getRealpathCacheSizeBytes(): int
+    {
+        $raw = ini_get('realpath_cache_size');
+        if ($raw === false || $raw === '') return 0;
+        // ini_get returns the raw ini string which may use shorthand notation (10M, 512K, 1G)
+        $raw   = trim($raw);
+        $unit  = strtoupper(substr($raw, -1));
+        $value = (int) $raw;
+        return match ($unit) {
+            'G' => $value * 1024 * 1024 * 1024,
+            'M' => $value * 1024 * 1024,
+            'K' => $value * 1024,
+            default => $value,
+        };
+    }
+
+    private function getSearchEngine(): string
+    {
+        return (string) ($this->scopeConfig->getValue('catalog/search/engine') ?? 'mysql');
     }
 
     private function isElasticsearchOk(): bool
@@ -99,6 +147,7 @@ class PerfCollector implements CollectorInterface
             'catalog_category_product', 'catalog_product_category',
             'catalog_product_price', 'catalog_product_attribute',
             'cataloginventory_stock', 'catalogrule_rule',
+            'catalogsearch_fulltext',
         ];
         foreach ($indexerIds as $id) {
             try {
@@ -115,7 +164,9 @@ class PerfCollector implements CollectorInterface
 
     private function isStaticContentDeployed(): bool
     {
+        // Check for at least one Vendor/theme subdirectory (depth 2), not just any file.
+        // A .gitkeep or a partial failed deploy would pass the old depth-1 check.
         return is_dir(BP . '/pub/static/frontend')
-            && count(glob(BP . '/pub/static/frontend/*') ?: []) > 0;
+            && count(glob(BP . '/pub/static/frontend/*/*') ?: []) > 0;
     }
 }

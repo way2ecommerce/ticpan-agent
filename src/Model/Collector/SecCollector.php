@@ -14,21 +14,69 @@ class SecCollector implements CollectorInterface
         private readonly DeploymentConfig $deploymentConfig
     ) {}
 
+    // Known third-party 2FA module names as they appear in setup_module
+    private const THIRD_PARTY_TFA_MODULES = [
+        'Amasty_TwoFactorAuth',
+        'Magezon_TwoFactorAuth',
+        'Mageplaza_TwoFactorAuth',
+    ];
+
     public function collect(): array
     {
-        $inactiveAdmins = $this->getInactiveAdmins();
+        $inactiveAdmins  = $this->getInactiveAdmins();
+        $tfaModuleType   = $this->getTfaModuleType();
+        $thirdPartyMods  = $tfaModuleType === 'third_party' ? $this->getThirdPartyTfaModules() : [];
+
         return [
-            'admin_url_custom'        => $this->isAdminUrlCustom(),
-            'tfa_all_admins'          => $this->isTfaAllAdmins(),
-            'admins_without_tfa'      => $this->getAdminsWithoutTfa(),
-            'admin_security_config'   => $this->getAdminSecurityConfig(),
-            'captcha_admin_enabled'   => $this->isCaptchaAdminEnabled(),
-            'recaptcha_admin_enabled' => $this->isRecaptchaAdminEnabled(),
-            'inactive_admin_count'    => count($inactiveAdmins),
-            'inactive_admin_usernames'=> $inactiveAdmins,
-            'file_permissions_ok'     => $this->checkFilePermissions(),
-            'wrong_permission_paths'  => $this->getWrongPermissionPaths(),
+            'admin_url_custom'           => $this->isAdminUrlCustom(),
+            'use_secure_urls_in_admin'   => (bool) $this->scopeConfig->getValue('web/secure/use_in_adminhtml'),
+            'tfa_module_type'            => $tfaModuleType,
+            'tfa_third_party_modules'    => $thirdPartyMods,
+            'tfa_all_admins'             => $tfaModuleType === 'native' ? $this->isTfaAllAdmins() : null,
+            'admins_without_tfa'         => $tfaModuleType === 'native' ? $this->getAdminsWithoutTfa() : [],
+            'admin_security_config'      => $this->getAdminSecurityConfig(),
+            'captcha_admin_enabled'      => $this->isCaptchaAdminEnabled(),
+            'recaptcha_admin_enabled'    => $this->isRecaptchaAdminEnabled(),
+            'inactive_admin_count'       => count($inactiveAdmins),
+            'inactive_admin_usernames'   => $inactiveAdmins,
+            'file_permissions_ok'        => $this->checkFilePermissions(),
+            'wrong_permission_paths'     => $this->getWrongPermissionPaths(),
         ];
+    }
+
+    private function getTfaModuleType(): string
+    {
+        $connection = $this->resource->getConnection();
+
+        // Native Magento TFA: table tfa_user_config exists
+        if ($connection->isTableExists($this->resource->getTableName('tfa_user_config'))) {
+            return 'native';
+        }
+
+        // Check for known third-party 2FA modules in setup_module
+        if (! empty($this->getThirdPartyTfaModules())) {
+            return 'third_party';
+        }
+
+        return 'none';
+    }
+
+    private function getThirdPartyTfaModules(): array
+    {
+        $connection = $this->resource->getConnection();
+        $table      = $this->resource->getTableName('setup_module');
+
+        if (! $connection->isTableExists($table)) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count(self::THIRD_PARTY_TFA_MODULES), '?'));
+        $rows = $connection->fetchCol(
+            "SELECT module FROM {$table} WHERE module IN ({$placeholders}) AND schema_version IS NOT NULL",
+            self::THIRD_PARTY_TFA_MODULES
+        );
+
+        return $rows ?: [];
     }
 
     private function isAdminUrlCustom(): bool
@@ -129,15 +177,18 @@ class SecCollector implements CollectorInterface
             BP . '/app/etc/config.php'  => 0640,
         ];
         foreach ($checks as $path => $expected) {
-            if (file_exists($path)) {
-                $actual = fileperms($path) & 0777;
-                if ($actual > $expected) {
-                    $wrong[] = [
-                        'path'     => str_replace(BP . '/', '', $path),
-                        'actual'   => decoct($actual),
-                        'expected' => decoct($expected),
-                    ];
-                }
+            // Resolve symlinks: fileperms() on a symlink returns the link's own permissions
+            // (usually 0777), not the target's — which would always trigger a false positive.
+            $resolved = is_link($path) ? (realpath($path) ?: null) : $path;
+            if ($resolved === null || ! file_exists($resolved)) continue;
+
+            $actual = fileperms($resolved) & 0777;
+            if ($actual > $expected) {
+                $wrong[] = [
+                    'path'     => str_replace(BP . '/', '', $path),
+                    'actual'   => decoct($actual),
+                    'expected' => decoct($expected),
+                ];
             }
         }
         return $wrong;

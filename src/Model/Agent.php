@@ -50,6 +50,7 @@ class Agent
             'store_id'         => $this->config->getStoreId(),
             'timestamp'        => time(),
             'magento_version'  => $this->productMetadata->getVersion(),
+            'magento_edition'  => $this->productMetadata->getEdition(), // 'Community' or 'Enterprise'
             'php_version'      => PHP_VERSION,
             'is_cloud_edition' => $this->detectCloudEdition(),
             'data'             => $data,
