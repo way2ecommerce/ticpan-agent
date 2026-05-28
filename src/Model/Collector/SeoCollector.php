@@ -13,7 +13,24 @@ class SeoCollector implements CollectorInterface
         return [
             'product_meta_stats' => $this->getProductMetaStats(),
             'sample_pdp_urls'    => $this->getSamplePdpUrls(),
+            'store_views_count'  => $this->getActiveStoreViewsCount(),
         ];
+    }
+
+    private function getActiveStoreViewsCount(): int
+    {
+        try {
+            $connection = $this->resource->getConnection();
+            $storeTable = $this->resource->getTableName('store');
+            return (int) $connection->fetchOne(
+                $connection->select()
+                    ->from($storeTable, ['COUNT(*)'])
+                    ->where('store_id > 0')
+                    ->where('is_active = ?', 1)
+            );
+        } catch (\Throwable) {
+            return 0;
+        }
     }
 
     /**
