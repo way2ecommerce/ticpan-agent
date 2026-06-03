@@ -8,11 +8,22 @@ use Magento\Framework\App\ResourceConnection;
 
 class SecCollector implements CollectorInterface
 {
+    /** @var ScopeConfigInterface */
+    private $scopeConfig;
+    /** @var ResourceConnection */
+    private $resource;
+    /** @var DeploymentConfig */
+    private $deploymentConfig;
+
     public function __construct(
-        private readonly ScopeConfigInterface $scopeConfig,
-        private readonly ResourceConnection $resource,
-        private readonly DeploymentConfig $deploymentConfig
-    ) {}
+        ScopeConfigInterface $scopeConfig,
+        ResourceConnection $resource,
+        DeploymentConfig $deploymentConfig
+    ) {
+        $this->scopeConfig      = $scopeConfig;
+        $this->resource         = $resource;
+        $this->deploymentConfig = $deploymentConfig;
+    }
 
     // Known third-party 2FA module names as they appear in setup_module
     private const THIRD_PARTY_TFA_MODULES = [

@@ -6,7 +6,13 @@ use Magento\Framework\App\ResourceConnection;
 
 class SeoCollector implements CollectorInterface
 {
-    public function __construct(private readonly ResourceConnection $resource) {}
+    /** @var ResourceConnection */
+    private $resource;
+
+    public function __construct(ResourceConnection $resource)
+    {
+        $this->resource = $resource;
+    }
 
     public function collect(): array
     {
@@ -28,7 +34,7 @@ class SeoCollector implements CollectorInterface
                     ->where('store_id > 0')
                     ->where('is_active = ?', 1)
             );
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
             return 0;
         }
     }
@@ -87,7 +93,7 @@ class SeoCollector implements CollectorInterface
             $paths = $connection->fetchCol($select);
 
             return array_values(array_map(fn($p) => '/' . ltrim($p, '/'), $paths));
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
             return [];
         }
     }
@@ -137,7 +143,7 @@ class SeoCollector implements CollectorInterface
                 'without_title_count' => $total - $withTitle,
                 'without_desc_count'  => $total - $withDesc,
             ];
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
             return [];
         }
     }

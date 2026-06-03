@@ -8,10 +8,18 @@ use Magento\Store\Model\ScopeInterface;
 
 class BizCollector implements CollectorInterface
 {
+    /** @var ResourceConnection */
+    private $resource;
+    /** @var ScopeConfigInterface */
+    private $scopeConfig;
+
     public function __construct(
-        private readonly ResourceConnection $resource,
-        private readonly ScopeConfigInterface $scopeConfig,
-    ) {}
+        ResourceConnection $resource,
+        ScopeConfigInterface $scopeConfig
+    ) {
+        $this->resource    = $resource;
+        $this->scopeConfig = $scopeConfig;
+    }
 
     public function collect(): array
     {

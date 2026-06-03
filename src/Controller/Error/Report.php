@@ -12,11 +12,22 @@ use Magento\Framework\Controller\Result\JsonFactory;
 
 class Report implements HttpPostActionInterface, CsrfAwareActionInterface
 {
+    /** @var RequestInterface */
+    private $request;
+    /** @var JsonFactory */
+    private $jsonFactory;
+    /** @var ResourceConnection */
+    private $resource;
+
     public function __construct(
-        private readonly RequestInterface $request,
-        private readonly JsonFactory $jsonFactory,
-        private readonly ResourceConnection $resource,
-    ) {}
+        RequestInterface $request,
+        JsonFactory $jsonFactory,
+        ResourceConnection $resource
+    ) {
+        $this->request     = $request;
+        $this->jsonFactory = $jsonFactory;
+        $this->resource    = $resource;
+    }
 
     public function execute()
     {
@@ -46,7 +57,7 @@ class Report implements HttpPostActionInterface, CsrfAwareActionInterface
                 'url'        => mb_substr($body['url'] ?? '', 0, 500),
                 'created_at' => date('Y-m-d H:i:s'),
             ]);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
             // Silently ignore — never break the frontend
         }
 

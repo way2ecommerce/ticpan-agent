@@ -6,7 +6,13 @@ use W2e\Ticpan\Model\Agent;
 
 class SendReport
 {
-    public function __construct(private readonly Agent $agent) {}
+    /** @var Agent */
+    private $agent;
+
+    public function __construct(Agent $agent)
+    {
+        $this->agent = $agent;
+    }
 
     public function execute(): void
     {

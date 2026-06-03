@@ -10,12 +10,26 @@ use Magento\Framework\Shell;
 
 class PerfCollector implements CollectorInterface
 {
+    /** @var ScopeConfigInterface */
+    private $scopeConfig;
+    /** @var DeploymentConfig */
+    private $deploymentConfig;
+    /** @var TypeListInterface */
+    private $cacheTypeList;
+    /** @var IndexerRegistry */
+    private $indexerRegistry;
+
     public function __construct(
-        private readonly ScopeConfigInterface $scopeConfig,
-        private readonly DeploymentConfig $deploymentConfig,
-        private readonly TypeListInterface $cacheTypeList,
-        private readonly IndexerRegistry $indexerRegistry
-    ) {}
+        ScopeConfigInterface $scopeConfig,
+        DeploymentConfig $deploymentConfig,
+        TypeListInterface $cacheTypeList,
+        IndexerRegistry $indexerRegistry
+    ) {
+        $this->scopeConfig      = $scopeConfig;
+        $this->deploymentConfig = $deploymentConfig;
+        $this->cacheTypeList    = $cacheTypeList;
+        $this->indexerRegistry  = $indexerRegistry;
+    }
 
     public function collect(): array
     {
@@ -67,7 +81,7 @@ class PerfCollector implements CollectorInterface
     {
         $sessionBackend = $this->deploymentConfig->get('session/save');
         $cacheBackend   = $this->deploymentConfig->get('cache/frontend/default/backend');
-        return $sessionBackend === 'redis' || str_contains((string) $cacheBackend, 'Redis');
+        return $sessionBackend === 'redis' || strpos((string) $cacheBackend, 'Redis') !== false;
     }
 
     private function isOpcacheEnabled(): bool
@@ -109,12 +123,12 @@ class PerfCollector implements CollectorInterface
         $raw   = trim($raw);
         $unit  = strtoupper(substr($raw, -1));
         $value = (int) $raw;
-        return match ($unit) {
-            'G' => $value * 1024 * 1024 * 1024,
-            'M' => $value * 1024 * 1024,
-            'K' => $value * 1024,
-            default => $value,
-        };
+        switch ($unit) {
+            case 'G': return $value * 1024 * 1024 * 1024;
+            case 'M': return $value * 1024 * 1024;
+            case 'K': return $value * 1024;
+            default:  return $value;
+        }
     }
 
     private function getSearchEngine(): string
@@ -125,7 +139,7 @@ class PerfCollector implements CollectorInterface
     private function isElasticsearchOk(): bool
     {
         $engine = $this->scopeConfig->getValue('catalog/search/engine');
-        if (! str_contains((string) $engine, 'elasticsearch') && ! str_contains((string) $engine, 'opensearch')) {
+        if (strpos((string) $engine, 'elasticsearch') === false && strpos((string) $engine, 'opensearch') === false) {
             return true; // not using ES/OS, not applicable
         }
         $host = $this->scopeConfig->getValue('catalog/search/elasticsearch7_server_hostname')
@@ -155,7 +169,7 @@ class PerfCollector implements CollectorInterface
                 if ($indexer->isInvalid()) {
                     $invalid[] = $id;
                 }
-            } catch (\Exception) {
+            } catch (\Exception $e) {
                 // indexer might not exist in all Magento versions
             }
         }

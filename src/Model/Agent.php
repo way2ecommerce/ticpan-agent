@@ -10,13 +10,30 @@ use W2e\Ticpan\Model\Collector\CollectorPool;
 
 class Agent
 {
+    /** @var Config */
+    private $config;
+    /** @var CollectorPool */
+    private $collectorPool;
+    /** @var ProductMetadataInterface */
+    private $productMetadata;
+    /** @var Curl */
+    private $curl;
+    /** @var LoggerInterface */
+    private $logger;
+
     public function __construct(
-        private readonly Config $config,
-        private readonly CollectorPool $collectorPool,
-        private readonly ProductMetadataInterface $productMetadata,
-        private readonly Curl $curl,
-        private readonly LoggerInterface $logger
-    ) {}
+        Config $config,
+        CollectorPool $collectorPool,
+        ProductMetadataInterface $productMetadata,
+        Curl $curl,
+        LoggerInterface $logger
+    ) {
+        $this->config          = $config;
+        $this->collectorPool   = $collectorPool;
+        $this->productMetadata = $productMetadata;
+        $this->curl            = $curl;
+        $this->logger          = $logger;
+    }
 
     public function run(): void
     {
@@ -46,7 +63,7 @@ class Agent
         }
 
         return [
-            'agent_version'    => '1.1.0',
+            'agent_version'    => '1.2.0',
             'store_id'         => $this->config->getStoreId(),
             'timestamp'        => time(),
             'magento_version'  => $this->productMetadata->getVersion(),

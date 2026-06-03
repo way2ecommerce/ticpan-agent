@@ -7,10 +7,18 @@ use Magento\Framework\App\ResourceConnection;
 
 class CodeCollector implements CollectorInterface
 {
+    /** @var DirectoryList */
+    private $directoryList;
+    /** @var ResourceConnection */
+    private $resource;
+
     public function __construct(
-        private readonly DirectoryList $directoryList,
-        private readonly ResourceConnection $resource,
-    ) {}
+        DirectoryList $directoryList,
+        ResourceConnection $resource
+    ) {
+        $this->directoryList = $directoryList;
+        $this->resource      = $resource;
+    }
 
     private const CORE_FILE_SAMPLES = [
         'vendor/magento/framework/App/Bootstrap.php',
@@ -355,7 +363,7 @@ class CodeCollector implements CollectorInterface
                 'message' => mb_substr($r['message'], 0, 300),
                 'count'   => (int) $r['count'],
             ], $rows);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
             return [];
         }
     }
@@ -376,7 +384,7 @@ class CodeCollector implements CollectorInterface
                     ->from($table, ['COUNT(*)'])
                     ->where('created_at >= ?', $since)
             );
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
             return 0;
         }
     }

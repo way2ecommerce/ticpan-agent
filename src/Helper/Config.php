@@ -15,10 +15,14 @@ class Config extends AbstractHelper
     private const XML_PATH_SECRET_KEY   = 'w2e_ticpan/general/secret_key';
     private const XML_PATH_TIMEOUT      = 'w2e_ticpan/general/timeout';
 
+    /** @var EncryptorInterface */
+    private $encryptor;
+
     public function __construct(
         Context $context,
-        private readonly EncryptorInterface $encryptor
+        EncryptorInterface $encryptor
     ) {
+        $this->encryptor = $encryptor;
         parent::__construct($context);
     }
 

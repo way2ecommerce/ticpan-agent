@@ -9,8 +9,12 @@ use W2e\Ticpan\Model\Agent;
 
 class SendReportCommand extends Command
 {
-    public function __construct(private readonly Agent $agent)
+    /** @var Agent */
+    private $agent;
+
+    public function __construct(Agent $agent)
     {
+        $this->agent = $agent;
         parent::__construct();
     }
 

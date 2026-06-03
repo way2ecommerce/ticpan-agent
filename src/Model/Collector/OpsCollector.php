@@ -8,10 +8,18 @@ use Magento\Framework\Module\StatusFactory;
 
 class OpsCollector implements CollectorInterface
 {
+    /** @var ResourceConnection */
+    private $resource;
+    /** @var ModuleManager */
+    private $moduleManager;
+
     public function __construct(
-        private readonly ResourceConnection $resource,
-        private readonly ModuleManager $moduleManager
-    ) {}
+        ResourceConnection $resource,
+        ModuleManager $moduleManager
+    ) {
+        $this->resource      = $resource;
+        $this->moduleManager = $moduleManager;
+    }
 
     public function collect(): array
     {
