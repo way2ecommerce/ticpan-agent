@@ -10,16 +10,35 @@ Recopila métricas de seguridad, rendimiento, SEO, calidad de código e infraest
 
 | Requisito | Versión mínima |
 |-----------|---------------|
-| PHP | 8.1 |
-| Magento Open Source / Adobe Commerce | 2.4.4 |
+| PHP | 7.4 |
+| Magento Open Source / Adobe Commerce | 2.3.x / 2.4.x |
 | Módulo agente | 1.0.0 |
 
 ---
 
 ## Instalación
 
+### Vía Composer (Magento 2.4.x con PHP 8.x — recomendado)
+
 ```bash
 composer require way2ecommerce/ticpan-agent
+bin/magento module:enable W2e_Ticpan
+bin/magento setup:upgrade
+bin/magento cache:flush
+```
+
+### Sin Composer (Magento 2.3.x / PHP 7.4 o entornos sin acceso a Packagist)
+
+```bash
+# 1. Clonar el tag directamente en app/code
+rm -rf app/code/W2e/Ticpan
+git clone --branch 1.3.0 --depth 1 https://github.com/way2ecommerce/ticpan-agent app/code/W2e/Ticpan
+
+# 2. Mover el código de src/ a la raíz del módulo
+cp -r app/code/W2e/Ticpan/src/* app/code/W2e/Ticpan/
+rm -rf app/code/W2e/Ticpan/src app/code/W2e/Ticpan/.git
+
+# 3. Habilitar y actualizar
 bin/magento module:enable W2e_Ticpan
 bin/magento setup:upgrade
 bin/magento cache:flush

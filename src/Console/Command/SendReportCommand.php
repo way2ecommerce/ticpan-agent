@@ -29,6 +29,6 @@ class SendReportCommand extends Command
         $output->writeln('<info>Enviando reporte a Ticpan...</info>');
         $this->agent->run();
         $output->writeln('<info>Listo. Revisa var/log/system.log para ver el resultado.</info>');
-        return Command::SUCCESS;
+        return 0;
     }
 }
