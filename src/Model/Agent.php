@@ -63,7 +63,7 @@ class Agent
         }
 
         return [
-            'agent_version'    => '1.2.0',
+            'agent_version'    => '1.3.0',
             'store_id'         => $this->config->getStoreId(),
             'timestamp'        => time(),
             'magento_version'  => $this->productMetadata->getVersion(),
