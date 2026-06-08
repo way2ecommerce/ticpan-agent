@@ -411,6 +411,7 @@ class CodeCollector implements CollectorInterface
                 'version'   => $pkg['version'] ?? '',
                 'time'      => $pkg['time'] ?? null,
                 'abandoned' => $abandoned === true ? true : (is_string($abandoned) ? $abandoned : false),
+                'type'      => $pkg['type'] ?? 'library',
             ];
         }
 
