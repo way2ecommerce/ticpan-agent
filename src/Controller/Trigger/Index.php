@@ -2,31 +2,42 @@
 
 namespace W2e\Ticpan\Controller\Trigger;
 
+use Magento\Cron\Model\Schedule;
+use Magento\Cron\Model\ResourceModel\Schedule\CollectionFactory as ScheduleCollectionFactory;
+use Magento\Cron\Model\ScheduleFactory;
 use Magento\Framework\App\Action\HttpPostActionInterface;
 use Magento\Framework\App\CsrfAwareActionInterface;
 use Magento\Framework\App\Request\InvalidRequestException;
 use Magento\Framework\App\RequestInterface;
 use Magento\Framework\Controller\Result\JsonFactory;
+use Magento\Framework\Stdlib\DateTime\DateTime;
 use W2e\Ticpan\Helper\Config;
-use W2e\Ticpan\Model\Agent;
 
 class Index implements HttpPostActionInterface, CsrfAwareActionInterface
 {
-    private RequestInterface $request;
-    private JsonFactory      $jsonFactory;
-    private Config           $config;
-    private Agent            $agent;
+    private const JOB_CODE = 'ticpan_agent_heartbeat';
+
+    private RequestInterface        $request;
+    private JsonFactory             $jsonFactory;
+    private Config                  $config;
+    private ScheduleFactory         $scheduleFactory;
+    private ScheduleCollectionFactory $scheduleCollectionFactory;
+    private DateTime                $dateTime;
 
     public function __construct(
-        RequestInterface $request,
-        JsonFactory      $jsonFactory,
-        Config           $config,
-        Agent            $agent
+        RequestInterface          $request,
+        JsonFactory               $jsonFactory,
+        Config                    $config,
+        ScheduleFactory           $scheduleFactory,
+        ScheduleCollectionFactory $scheduleCollectionFactory,
+        DateTime                  $dateTime
     ) {
-        $this->request     = $request;
-        $this->jsonFactory = $jsonFactory;
-        $this->config      = $config;
-        $this->agent       = $agent;
+        $this->request                   = $request;
+        $this->jsonFactory               = $jsonFactory;
+        $this->config                    = $config;
+        $this->scheduleFactory           = $scheduleFactory;
+        $this->scheduleCollectionFactory = $scheduleCollectionFactory;
+        $this->dateTime                  = $dateTime;
     }
 
     public function execute()
@@ -51,10 +62,33 @@ class Index implements HttpPostActionInterface, CsrfAwareActionInterface
             return $result->setHttpResponseCode(401)->setData(['error' => 'Invalid signature']);
         }
 
-        // Run agent immediately (errors are caught internally by Agent::run())
-        $this->agent->run();
+        $scheduledAt = $this->scheduleNextRun();
 
-        return $result->setHttpResponseCode(202)->setData(['status' => 'triggered']);
+        return $result->setHttpResponseCode(202)->setData(['status' => 'triggered', 'scheduled_at' => $scheduledAt]);
+    }
+
+    private function scheduleNextRun(): string
+    {
+        $now        = $this->dateTime->gmtTimestamp();
+        $nextMinute = date('Y-m-d H:i:00', $now + 60);
+
+        // Avoid duplicate: if a pending entry already exists, no need to add another
+        $pending = $this->scheduleCollectionFactory->create()
+            ->addFieldToFilter('job_code', self::JOB_CODE)
+            ->addFieldToFilter('status', Schedule::STATUS_PENDING)
+            ->getSize();
+
+        if ($pending === 0) {
+            /** @var Schedule $schedule */
+            $schedule = $this->scheduleFactory->create();
+            $schedule->setJobCode(self::JOB_CODE)
+                ->setStatus(Schedule::STATUS_PENDING)
+                ->setCreatedAt(date('Y-m-d H:i:s', $now))
+                ->setScheduledAt($nextMinute)
+                ->save();
+        }
+
+        return $nextMinute;
     }
 
     public function createCsrfValidationException(RequestInterface $request): ?InvalidRequestException
