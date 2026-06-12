@@ -142,14 +142,21 @@ class PerfCollector implements CollectorInterface
         if (strpos((string) $engine, 'elasticsearch') === false && strpos((string) $engine, 'opensearch') === false) {
             return true; // not using ES/OS, not applicable
         }
-        $host = $this->scopeConfig->getValue('catalog/search/elasticsearch7_server_hostname')
-            ?? $this->scopeConfig->getValue('catalog/search/opensearch_server_hostname')
-            ?? 'localhost';
-        $port = $this->scopeConfig->getValue('catalog/search/elasticsearch7_server_port')
-            ?? $this->scopeConfig->getValue('catalog/search/opensearch_server_port')
-            ?? 9200;
 
-        $ctx = stream_context_create(['http' => ['timeout' => 3]]);
+        $prefix = strpos((string) $engine, 'opensearch') !== false ? 'opensearch' : 'elasticsearch7';
+
+        $host = $this->scopeConfig->getValue("catalog/search/{$prefix}_server_hostname") ?? 'localhost';
+        $port = $this->scopeConfig->getValue("catalog/search/{$prefix}_server_port") ?? 9200;
+
+        $opts = ['http' => ['timeout' => 3]];
+
+        if ((bool) $this->scopeConfig->getValue("catalog/search/{$prefix}_enable_auth")) {
+            $user = (string) ($this->scopeConfig->getValue("catalog/search/{$prefix}_username") ?? '');
+            $pass = (string) ($this->scopeConfig->getValue("catalog/search/{$prefix}_password") ?? '');
+            $opts['http']['header'] = 'Authorization: Basic ' . base64_encode("{$user}:{$pass}");
+        }
+
+        $ctx = stream_context_create($opts);
         $result = @file_get_contents("http://{$host}:{$port}/_cluster/health", false, $ctx);
         return $result !== false;
     }
